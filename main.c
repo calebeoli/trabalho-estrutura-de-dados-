@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 typedef struct {
     int id;
@@ -18,11 +19,13 @@ typedef struct {
 
 int lerDados(const char *nome_arquivo, Dados *X, int max_registros); // Função para ler os dados do arquivo
 void imprimirDados(Dados *X, int qtd); // Função para imprimir os dados
-int comparar_por_id(const void *a, const void *b); // Função para comparar por ID
-int converter_data_para_int(const char *data); // Função para converter data para inteiro
-int comparar_por_data_ajuizamento(const void *a, const void *b); // Função para comparar por data
+void insertion_sort(Dados *X, int total_registros); // Função para comparar por ID
+int converter_data_para_int(const char *data) ; // Função para converter data para inteiro
+void ordenar_por_data_ajuizamento(Dados *X, int total_registros) ; // Função para comparar por data
 int contaClasse(Dados *X,int total_registros); // função contar quantos processos estão vinculados a um determinado “id_classe”;
 int contaAssunto(Dados *X,int total_registros); // conta quantos assuntos unicos existem no arquivo.
+int contemVirgula(Dados *X,int total_registros); // Função para verificar quantos id_assuntos tem mais de um assunto.
+void calculaDiasTramitacao(Dados *X, int total_registros); // Função para calcular os dias de tramitação
 
 
 int main() {
@@ -43,10 +46,18 @@ int main() {
 
     //contaClasse(X, registros_lidos);
 
-    int assuntos = contaAssunto(X, registros_lidos);
-    printf("Total de assuntos únicos: %d\n", assuntos);
+   //contaAssunto(X, registros_lidos);
 
-    //imprimirDados(X,242);
+
+    //int linhas_com_virgula = contemVirgula(X, registros_lidos);
+    //printf("Total de linhas com virgula no id_assunto: %d\n", linhas_com_virgula);
+
+    //insertion_sort(X, registros_lidos);
+    //imprimirDados(X,10);
+
+    //ordenar_por_data_ajuizamento(X, registros_lidos);
+
+    //calculaDiasTramitacao(X, registros_lidos);
 
     free(X);
     return 0;
@@ -70,9 +81,15 @@ int lerDados(const char *nome_arquivo, Dados *X, int max_registros) {
             // Leitura bem-sucedida com a formatação principal
         } else {
             // Tenta ler com a formatação alternativa
-            if (sscanf(linha, "%d,\"%[^\"]\",%[^,],\"{%[^}]}\",\"%[^\"]\",%d",
+            if (sscanf(linha, "%d,\"%[^\"]\",%[^,],\"{%[^}]}\",{%[^}]},%d",
                        &X[i].id, X[i].numero, X[i].data_ajuizamento, X[i].id_classe, X[i].id_assunto, &X[i].ano_eleicao) == 6) {
                 // Leitura bem-sucedida com a formatação alternativa
+            } else {
+                if (sscanf(linha, "%d,\"%[^\"]\",%[^,],{%[^}]},\"{%[^}]}\",%d",
+                    &X[i].id, X[i].numero, X[i].data_ajuizamento, X[i].id_classe, X[i].id_assunto, &X[i].ano_eleicao) == 6) {
+                    
+                    
+                }
             }
         }
         i++;
@@ -90,31 +107,65 @@ void imprimirDados(Dados *X, int qtd) {
     }
 }
 
-int comparar_por_id(const void *a, const void *b) {
-    Dados *dadoA = (Dados *)a;
-    Dados *dadoB = (Dados *)b;
-    return dadoA->id - dadoB->id;
+
+void insertion_sort(Dados *X, int total_registros) {
+    for (int i = 1; i < total_registros; i++) {
+        Dados chave = X[i];
+        int j = i - 1;
+
+        // Move elementos maiores que a chave para frente
+        while (j >= 0 && X[j].id > chave.id) {
+            X[j + 1] = X[j];
+            j--;
+        }
+        X[j + 1] = chave;
+    }
+        FILE *arquivo = fopen("../id_ordenado.csv", "w");
+        if (arquivo == NULL) {
+            printf("Erro ao abrir o arquivo para escrita\n");
+            return;
+        }
+        fprintf(arquivo, "id,numero,data_ajuizamento,id_classe,id_assunto,ano_eleicao\n");
+        for (int i = 0; i < total_registros; i++) {
+            fprintf(arquivo, "%d,\"%s\",%s,\"%s\",\"%s\",%d\n",
+                    X[i].id, X[i].numero, X[i].data_ajuizamento, X[i].id_classe, X[i].id_assunto, X[i].ano_eleicao);
+        }
+        fclose(arquivo);
 }
 
-// Converte data para um número inteiro
 int converter_data_para_int(const char *data) {
     int ano, mes, dia;
-    sscanf(data, "%d-%d-%d", &ano, &mes, &dia);
-    return ano * 10000 + mes * 100 + dia; // Formato YYYYMMDD
+    sscanf(data, "%d-%d-%d", &ano, &mes, &dia); // Extrai ano, mês e dia da string
+    return (ano * 365) + (mes * 30) + dia; // Converte a data para um número total de dias
 }
 
 // Compara para ordenar em ordem decrescente pela data de ajuizamento
-int comparar_por_data_ajuizamento(const void *a, const void *b) {
+void ordenar_por_data_ajuizamento(Dados *X, int total_registros) {
+    for (int i = 1; i < total_registros; i++) {
+        Dados chave = X[i];
+        int j = i - 1;
 
+        // Converte a data de ajuizamento para inteiro para comparação
+        int data_chave = converter_data_para_int(chave.data_ajuizamento);
 
-
-    const Dados *dadoA = (const Dados *)a;
-    const Dados *dadoB = (const Dados *)b;
-
-    int dataA = converter_data_para_int(dadoA->data_ajuizamento);
-    int dataB = converter_data_para_int(dadoB->data_ajuizamento);
-
-    return dataB - dataA; // Ordem decrescente
+        // Move os elementos que têm data menor para frente
+        while (j >= 0 && converter_data_para_int(X[j].data_ajuizamento) < data_chave) {
+            X[j + 1] = X[j];
+            j--;
+        }
+        X[j + 1] = chave;
+    }
+    FILE *arquivo = fopen("../data_ordenado.csv", "w");
+    if (arquivo == NULL) {
+        printf("Erro ao abrir o arquivo para escrita\n");
+        return;
+    }
+    fprintf(arquivo, "id,numero,data_ajuizamento,id_classe,id_assunto,ano_eleicao\n");
+    for (int i = 0; i < total_registros; i++) {
+        fprintf(arquivo, "%d,\"%s\",%s,\"%s\",\"%s\",%d\n",
+                X[i].id, X[i].numero, X[i].data_ajuizamento, X[i].id_classe, X[i].id_assunto, X[i].ano_eleicao);
+    }
+    fclose(arquivo);
 }
 
 int contaClasse(Dados *X, int total_registros) {
@@ -158,6 +209,7 @@ int contaClasse(Dados *X, int total_registros) {
 }
 
 int contaAssunto(Dados *X, int total_registros) {
+
     char assuntos_unicos[1000][255]; // Array para armazenar IDs de assunto únicos
     int total_assuntos = 0;
 
@@ -186,8 +238,47 @@ int contaAssunto(Dados *X, int total_registros) {
         }
     }
 
-    return total_assuntos; // Retorna o número total de IDs de assunto únicos
+    return    printf("Total de assuntos unicos: %d\n", total_assuntos); // Retorna o número total de IDs de assunto únicos
 }
 
+int contemVirgula(Dados *X, int total_registros) {
+    int num_linhas = 0;
+
+    for (int i = 0; i < total_registros; i++) { // Corrigido: i < total_registros
+        if (strchr(X[i].id_assunto, ',') != NULL) { // Verifica se há uma vírgula no campo id_assunto
+            
+            printf("%d, %s, %s, %s, %s, %d\n",
+                   X[i].id, X[i].numero, X[i].data_ajuizamento, X[i].id_classe, X[i].id_assunto, X[i].ano_eleicao);
+            num_linhas++;
+        }
+    }
+
+    return num_linhas; // Retorna o número de processos com mais de um assunto
+}
+
+
+
+void calculaDiasTramitacao(Dados *X, int total_registros) {
+    // Obtém a data atual
+    time_t t = time(NULL);
+    struct tm *data_atual = localtime(&t);
+
+    // Converte a data atual para o formato de dias
+    int dias_atuais = (data_atual->tm_year + 1900) * 365 + (data_atual->tm_mon + 1) * 30 + data_atual->tm_mday;
+
+    printf("ID do Processo | Dias em Tramitação\n");
+
+
+    for (int i = 0; i < total_registros; i++) {
+        // Converte a data de ajuizamento para o formato de dias
+        int dias_ajuizamento = converter_data_para_int(X[i].data_ajuizamento);
+
+        // Calcula a diferença em dias
+        int dias_tramitacao = dias_atuais - dias_ajuizamento;
+
+        // Exibe o ID do processo e os dias em tramitação
+        printf("id: %d, dias: %d \n", X[i].id, dias_tramitacao);
+    }
+}
 
 
